@@ -48,12 +48,23 @@ int16_t ReadBQ32000(uint16_t *second,uint16_t *minute,uint16_t *hour,uint16_t *d
 int16_t I2C_CheckIfTX(uint16_t timeout);
 int16_t I2C_CheckIfRX(uint16_t timeout);
 uint16_t RunI2C = 0; // Flag variable to indicate when to run I2C commands
-int16_t I2C_OK = 0;
+uint16_t I2C_OK = 0;
 int32_t num_WriteDAN777_Errors = 0;
 int32_t num_ReadDAN777_Errors = 0;
 
-void setRC1cmd(float angle);
-void setRC2cmd(float angle);
+int16_t motorupdown = 0;
+int16_t rc_cmd = 0;
+int16_t RCCMD1 = 0;
+int16_t RCCMD2 = 0;
+
+float ADCscaled1 = 0;
+float ADCscaled2 = 0;
+uint16_t ADCraw1 = 0;
+uint16_t ADCraw2 = 0;
+
+
+
+
 
 
 void main(void)
@@ -301,14 +312,14 @@ void main(void)
     while(1)
     {
         if (UARTPrint == 1 ) {
-            serial_printf(&SerialA,"CMDXYZ1: %d, CMDXYZ2: %d, RETval1: %d, RETval2: %d\r\n", CMDXYZ1, CMDXYZ2,
-                          RETval1, RETval2);
+            serial_printf(&SerialA,"RCCMD1: %d, RCCMD2: %d, ADCscaled1: %.3f, ADCscaled2: %.3f\r\n", RCCMD1, RCCMD2,
+                          ADCscaled1, ADCscaled2);
             UARTPrint = 0;
         }
         if (RunI2C == 1) {
             RunI2C = 0;
             // Write to DAN777
-            I2C_OK = WriteDAN777RCServo(CMDXYZ1, CMDXYZ2);
+            I2C_OK = WriteDAN777RCServo(RCCMD1, RCCMD2);
             num_WriteDAN777_Errors = 0;
             while(I2C_OK != 0) {
                 num_WriteDAN777_Errors++;
@@ -318,11 +329,13 @@ void main(void)
                 } else {
                     I2CB_Init();
                     DELAY_US(100000);
-                    I2C_OK = WriteDAN777RCServo(CMDXYZ1, CMDXYZ2);
+                    I2C_OK = WriteDAN777RCServo(RCCMD1, RCCMD2);
                 }
             }
             // Read DAN777
-            I2C_OK = ReadDAN777ADC(&RETval1, &RETval2);
+            I2C_OK = ReadDAN777ADC(&ADCraw1, &ADCraw2);
+            ADCscaled1 = ADCraw1 / 1024.0 * 3.3;
+            ADCscaled2 = ADCraw2 / 1024.0 * 3.3;
             num_ReadDAN777_Errors = 0;
             while(I2C_OK != 0) {
                 num_ReadDAN777_Errors++;
@@ -332,7 +345,7 @@ void main(void)
                 } else {
                     I2CB_Init();
                     DELAY_US(100000);
-                    I2C_OK = ReadDAN777ADC(&RETval1, &RETval2);
+                    I2C_OK = ReadDAN777ADC(&ADCraw1, &ADCraw2);
                 }
             }
         }
@@ -406,24 +419,24 @@ __interrupt void cpu_timer2_isr(void)
 
     if(motorupdown == 1){
            // increment angle (continue turning)
-           servo_angle += 0.05;
+           rc_cmd += 5;
            // set angle for both motors
-           setEPWM8A_RCServo(servo_angle);
-           setEPWM8B_RCServo(servo_angle);
+           RCCMD1 = rc_cmd;
+           RCCMD2 = rc_cmd;
        }
        else{
            // this is spinning the opposite direction as above (same logic)
-           servo_angle -= 0.05;
-           setEPWM8A_RCServo(servo_angle);
-           setEPWM8B_RCServo(servo_angle);
+           rc_cmd -= 5;
+           RCCMD1 = rc_cmd;
+           RCCMD2 = rc_cmd;
        }
        // check if we are reaching the end of the motor's range of motion
-       if (servo_angle > 90) {
+       if (rc_cmd > 5200) {
            // if yes, switch direction
            motorupdown = 0;
        }
        // same logic as above
-       else if (servo_angle < -90) {
+       else if (rc_cmd < 1200) {
 
            motorupdown = 1;
        }
@@ -530,7 +543,7 @@ void I2CB_Init(void) {
 }
 
 // Write 2 16-bit commands (LSB then MSB) to I2C Slave DAN777 starting at DAN777's register 4
-uint16_t WriteDAN777RCServo(uint16_t RC1, uint16_t RC2) {
+int16_t WriteDAN777RCServo(uint16_t RC1, uint16_t RC2) {
     uint16_t rc1lsb = 0;
     uint16_t rc1msb = 0;
     uint16_t rc2lsb = 0;
