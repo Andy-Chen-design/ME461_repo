@@ -328,20 +328,20 @@ void main(void)
     I2CB_Init();
 
 
-    // Write to BQ32000
-    I2C_OK = WriteBQ32000(0, 53, 17, 2, 30, 10, 23);
-    num_WriteDAN777_Errors = 0;
-    while(I2C_OK != 0) {
-        num_WriteDAN777_Errors++;
-        if (num_WriteDAN777_Errors > 2) {
-            serial_printf(&SerialA,"WriteBQ32000 Error: %d\r\n",I2C_OK);
-            I2C_OK = 0;
-        } else {
-            I2CB_Init();
-            DELAY_US(100000);
-            I2C_OK = WriteBQ32000(0, 15, 17, 2, 30, 10, 23);
-        }
-    }
+//    // Write to BQ32000
+//    I2C_OK = WriteBQ32000(0, 53, 17, 2, 30, 10, 23);
+//    num_WriteDAN777_Errors = 0;
+//    while(I2C_OK != 0) {
+//        num_WriteDAN777_Errors++;
+//        if (num_WriteDAN777_Errors > 2) {
+//            serial_printf(&SerialA,"WriteBQ32000 Error: %d\r\n",I2C_OK);
+//            I2C_OK = 0;
+//        } else {
+//            I2CB_Init();
+//            DELAY_US(100000);
+//            I2C_OK = WriteBQ32000(0, 53, 17, 2, 30, 10, 23);
+//        }
+//    }
 
     // IDLE loop. Just sit and loop forever (optional):
     while(1)
