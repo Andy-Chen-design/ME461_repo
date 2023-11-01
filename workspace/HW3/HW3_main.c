@@ -71,13 +71,6 @@ uint16_t day = 0;
 uint16_t date = 0;
 uint16_t month = 0;
 uint16_t year = 0;
-//char char_sun[] = "Sunday";
-//char char_mon[] = "Monday";
-//char char_tue[] = "Tuesday";
-//char char_wed[] = "Wednesday";
-//char char_thu[] = "Thursday";
-//char char_fri[] = "Friday";
-//char char_sat[] = "Saturday";
 char char_day[10] = "";
 
 
@@ -328,20 +321,20 @@ void main(void)
     I2CB_Init();
 
 
-//    // Write to BQ32000
-//    I2C_OK = WriteBQ32000(0, 53, 17, 2, 30, 10, 23);
-//    num_WriteDAN777_Errors = 0;
-//    while(I2C_OK != 0) {
-//        num_WriteDAN777_Errors++;
-//        if (num_WriteDAN777_Errors > 2) {
-//            serial_printf(&SerialA,"WriteBQ32000 Error: %d\r\n",I2C_OK);
-//            I2C_OK = 0;
-//        } else {
-//            I2CB_Init();
-//            DELAY_US(100000);
-//            I2C_OK = WriteBQ32000(0, 53, 17, 2, 30, 10, 23);
-//        }
-//    }
+    //    // Write to BQ32000
+    //    I2C_OK = WriteBQ32000(0, 53, 17, 2, 30, 10, 23);
+    //    num_WriteDAN777_Errors = 0;
+    //    while(I2C_OK != 0) {
+    //        num_WriteDAN777_Errors++;
+    //        if (num_WriteDAN777_Errors > 2) {
+    //            serial_printf(&SerialA,"WriteBQ32000 Error: %d\r\n",I2C_OK);
+    //            I2C_OK = 0;
+    //        } else {
+    //            I2CB_Init();
+    //            DELAY_US(100000);
+    //            I2C_OK = WriteBQ32000(0, 53, 17, 2, 30, 10, 23);
+    //        }
+    //    }
 
     // IDLE loop. Just sit and loop forever (optional):
     while(1)
@@ -369,6 +362,7 @@ void main(void)
             }
             // Read DAN777
             I2C_OK = ReadDAN777ADC(&ADCraw1, &ADCraw2);
+            //YLC transfer the raw readings of ADC to numbers with units in volt
             ADCscaled1 = ADCraw1 / 1024.0 * 3.3;
             ADCscaled2 = ADCraw2 / 1024.0 * 3.3;
             num_ReadDAN777_Errors = 0;
@@ -385,9 +379,9 @@ void main(void)
             }
 
 
-            // Read DAN777
+            // Read BQ32000
             I2C_OK = ReadBQ32000(&sec, &min, &hr, &day, &date, &month, &year);
-
+            //YLC transfer the number inside day register to its actual name
             if (day == 1){
                 strcpy(char_day, "Sunday");
             }
@@ -495,30 +489,30 @@ __interrupt void cpu_timer2_isr(void)
     CpuTimer2.InterruptCount++;
 
     if(motorupdown == 1){
-        // increment angle (continue turning)
+        //YLC increment angle (continue turning)
         rc_cmd += 5;
         // set angle for both motors
         RCCMD1 = rc_cmd;
         RCCMD2 = rc_cmd;
     }
     else{
-        // this is spinning the opposite direction as above (same logic)
+        //YLC this is spinning the opposite direction as above (same logic)
         rc_cmd -= 5;
         RCCMD1 = rc_cmd;
         RCCMD2 = rc_cmd;
     }
-    // check if we are reaching the end of the motor's range of motion
+    //YLC check if we are reaching the end of the motor's range of motion
     if (rc_cmd > 5200) {
         // if yes, switch direction
         motorupdown = 0;
     }
-    // same logic as above
+    //YLC same logic as above
     else if (rc_cmd < 1200) {
 
         motorupdown = 1;
     }
 
-
+    //YLC enters while loop every 20 times CPU timer2 interrupt is called, sending and reading through I2C
     if ((CpuTimer2.InterruptCount % 20) == 0) {
         RunI2C = 1;
     }
@@ -789,8 +783,10 @@ int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,
     uint16_t ones_year = 0;
     int16_t I2C_Xready = 0;
 
+    //YLC split the number into ones and tens
     ones_sec = second % 10;
     tens_sec = second / 10;
+    //YLC left shift tens 4 bits and combine with ones to a 8 bits register
     write_sec = (tens_sec << 4) | ones_sec;
 
     ones_min = minute % 10;
@@ -1016,9 +1012,11 @@ int16_t ReadBQ32000(uint16_t *second,uint16_t *minute,uint16_t *hour,uint16_t *d
     }
 
     // Since I2CCNT = 0 at this point, a stop condition will be issued
-
+    //YLC and second value with 1111 to get rid of tens
     ones_sec = (read_sec & 0xF);
+    //YLC right shift second value 4 bits to get rid of ones
     tens_sec = (read_sec >> 4);
+    //YLC combine ones and tens to a readable number
     *second = ones_sec + 10 * tens_sec;
 
     ones_min = (read_min & 0xF);
